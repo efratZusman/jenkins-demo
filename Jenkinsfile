@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out code...'
+                echo 'Checking out code from Git...'
                 checkout scm
             }
         }
@@ -24,47 +24,35 @@ pipeline {
             }
         }
         
-        stage('Test Image') {
+        stage('Run Container for Testing') {
             steps {
-                echo 'Testing Docker image...'
+                echo 'Running container for testing...'
                 script {
-                    sh "docker images | grep ${DOCKER_IMAGE}"
+                    sh '''
+                        # מחיקת container קודם אם קיים
+                        docker rm -f test-container 2>/dev/null || true
+
+                        # הרצת container חדש
+                        docker run -d --name test-container -p 8080:80 ${DOCKER_IMAGE}:${DOCKER_TAG}
+
+                        # המתנה שהשרת יעלה
+                        sleep 10
+
+                        # בדיקת השירות
+                        curl -f http://host.docker.internal:8080 || exit 1
+
+                        echo "Container is running successfully!"
+                    '''
                 }
             }
         }
-stage('Run Container') {
-    steps {
-        echo 'Running container for testing...'
-        script {
-            // מנסה למחוק אם קיים container קודם
-            sh 'docker rm -f test-container 2>/dev/null || true'
-
-            // מריץ את ה-container של היישום
-            sh "docker run -d --name test-container -p 8081:80 ${DOCKER_IMAGE}:${DOCKER_TAG}"
-
-            // מחכה זמן מספיק שהשרת יעלה
-            sh 'sleep 10'
-
-            // curl בודק את היישום; משתמש ב-host.docker.internal כדי לגשת ל-host machine
-            sh '''
-                if curl -f http://host.docker.internal:8081; then
-                    echo "Container is running successfully!"
-                else
-                    echo "Failed to reach container!"
-                    exit 1
-                fi
-            '''
-        }
-    }
-}
-
         
         stage('Cleanup') {
             steps {
                 echo 'Cleaning up test container...'
                 script {
-                    sh 'docker stop test-container || true'
-                    sh 'docker rm test-container || true'
+                    sh 'docker stop test-container 2>/dev/null || true'
+                    sh 'docker rm test-container 2>/dev/null || true'
                 }
             }
         }
