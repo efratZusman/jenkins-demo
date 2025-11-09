@@ -4,6 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "my-web-app"
         DOCKER_TAG = "${BUILD_NUMBER}"
+        TEST_PORT = "8081"
     }
     
     stages {
@@ -28,21 +29,21 @@ pipeline {
             steps {
                 echo 'Running container for testing...'
                 script {
-                    sh '''
+                    sh """
                         # מחיקת container קודם אם קיים
                         docker rm -f test-container 2>/dev/null || true
-
-                        # הרצת container חדש
-                        docker run -d --name test-container -p 8080:80 ${DOCKER_IMAGE}:${DOCKER_TAG}
-
+                        
+                        # הרצת container חדש על פורט פנוי
+                        docker run -d --name test-container -p ${TEST_PORT}:80 ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        
                         # המתנה שהשרת יעלה
                         sleep 10
-
+                        
                         # בדיקת השירות
-                        curl -f http://host.docker.internal:8080 || exit 1
-
+                        curl -f http://host.docker.internal:${TEST_PORT} || exit 1
+                        
                         echo "Container is running successfully!"
-                    '''
+                    """
                 }
             }
         }
