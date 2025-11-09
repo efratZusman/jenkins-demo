@@ -32,21 +32,32 @@ pipeline {
                 }
             }
         }
-        
-        stage('Run Container') {
-            steps {
-                echo 'Running container for testing...'
-                script {
-                    sh '''
-                        docker rm -f test-container 2>/dev/null || true
-                        docker run -d --name test-container -p 8081:80 ${DOCKER_IMAGE}:${DOCKER_TAG}
-                        sleep 3
-                        curl -f http://localhost:8081 || exit 1
-                        echo "Container is running successfully!"
-                    '''
-                }
-            }
+stage('Run Container') {
+    steps {
+        echo 'Running container for testing...'
+        script {
+            // מנסה למחוק אם קיים container קודם
+            sh 'docker rm -f test-container 2>/dev/null || true'
+
+            // מריץ את ה-container של היישום
+            sh "docker run -d --name test-container -p 8081:80 ${DOCKER_IMAGE}:${DOCKER_TAG}"
+
+            // מחכה זמן מספיק שהשרת יעלה
+            sh 'sleep 10'
+
+            // curl בודק את היישום; משתמש ב-host.docker.internal כדי לגשת ל-host machine
+            sh '''
+                if curl -f http://host.docker.internal:8081; then
+                    echo "Container is running successfully!"
+                else
+                    echo "Failed to reach container!"
+                    exit 1
+                fi
+            '''
         }
+    }
+}
+
         
         stage('Cleanup') {
             steps {
